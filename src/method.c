@@ -1467,6 +1467,54 @@ void jl_ctor_def(jl_value_t *ty, jl_value_t *functionloc)
             }
         }
         jl_method_def(argdata, NULL, body, inmodule);
+        
+        // define an additional outer constructor with Any for non-parametric fields
+        // if there are type parameters and at least one non-parametric field
+        if (nparams > 0) {
+            int has_nonparametric = 0;
+            for (size_t i = 0; i < nfields; i++) {
+                jl_value_t *ft = jl_svecref(fieldtypes, i);
+                int is_parametric = 0;
+                for (size_t j = 0; j < nparams; j++) {
+                    jl_tvar_t *tv = (jl_tvar_t*)jl_svecref(tvars, j);
+                    if (jl_has_typevar(ft, tv)) {
+                        is_parametric = 1;
+                        break;
+                    }
+                }
+                if (!is_parametric && ft != (jl_value_t*)jl_any_type) {
+                    has_nonparametric = 1;
+                    break;
+                }
+            }
+            if (has_nonparametric) {
+                jl_svec_t *atypes2 = jl_alloc_svec(nfields + 1);
+                jl_svecset(argdata, 0, atypes2);
+                jl_svecset(atypes2, 0, jl_wrap_Type(ty));
+                for (size_t i = 0; i < nfields; i++) {
+                    jl_value_t *ft = jl_svecref(fieldtypes, i);
+                    int is_parametric = 0;
+                    for (size_t j = 0; j < nparams; j++) {
+                        jl_tvar_t *tv = (jl_tvar_t*)jl_svecref(tvars, j);
+                        if (jl_has_typevar(ft, tv)) {
+                            is_parametric = 1;
+                            break;
+                        }
+                    }
+                    // Use exact type for parametric fields, Any for non-parametric fields
+                    jl_svecset(atypes2, i + 1, is_parametric ? ft : (jl_value_t*)jl_any_type);
+                }
+                body = jl_outer_ctor_body(ty, nfields, nparams, inmodule, jl_symbol_name(file), line);
+                if (names) {
+                    jl_array_t *slotnames = body->slotnames;
+                    for (size_t i = 0; i < nfields; i++) {
+                        jl_array_ptr_set(slotnames, i + 1, jl_svecref(names, i));
+                    }
+                }
+                jl_method_def(argdata, NULL, body, inmodule);
+            }
+        }
+        
         if (nparams == 0) {
             int all_Any = 1; // check if all fields are Any and the type is not parameterized, since inner constructor would be the same signature and code
             for (size_t i = 0; i < nfields; i++) {
