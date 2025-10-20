@@ -8646,3 +8646,64 @@ primitive type ByteString58434 (18 * 8) end
 
 @test Base.datatype_isbitsegal(Tuple{ByteString58434}) == false
 @test Base.datatype_haspadding(Tuple{ByteString58434}) == (length(Base.padding(Tuple{ByteString58434})) > 0)
+
+# Test for convenience constructors with parametric structs and non-parametric fields
+# Issue: parametric structs should have a constructor that allows conversion for non-parametric fields
+@testset "parametric struct constructors with non-parametric fields" begin
+    # Baseline: struct without type parameters
+    struct StructNoParams_ConvTest
+        x::Int
+        y::Float64
+    end
+    # Should be able to construct with conversion
+    @test StructNoParams_ConvTest(1, 1) isa StructNoParams_ConvTest
+    @test StructNoParams_ConvTest(1, 1).y === 1.0
+    
+    # Struct with one parametric field only
+    struct StructOneParam_ConvTest{T}
+        x::T
+    end
+    @test StructOneParam_ConvTest(1.0) isa StructOneParam_ConvTest{Float64}
+    
+    # Struct with parametric and non-parametric fields - the main test case
+    struct StructMixed_ConvTest{T}
+        x::T
+        y::Float64
+    end
+    # Exact types should work
+    @test StructMixed_ConvTest(1, 1.0) isa StructMixed_ConvTest{Int}
+    @test StructMixed_ConvTest(1, 1.0).y === 1.0
+    # Non-parametric field with conversion should work (this is the new behavior)
+    @test StructMixed_ConvTest(1, 1) isa StructMixed_ConvTest{Int}
+    @test StructMixed_ConvTest(1, 1).y === 1.0
+    @test StructMixed_ConvTest(1.0, 1) isa StructMixed_ConvTest{Float64}
+    @test StructMixed_ConvTest(1.0, 1).y === 1.0
+    
+    # Multiple type parameters with non-parametric field
+    struct StructMultiParam_ConvTest{T,S}
+        x::T
+        y::S
+        z::Float64
+    end
+    @test StructMultiParam_ConvTest(1, 2.0, 3.0) isa StructMultiParam_ConvTest{Int,Float64}
+    # Non-parametric field z should allow conversion
+    @test StructMultiParam_ConvTest(1, 2.0, 3) isa StructMultiParam_ConvTest{Int,Float64}
+    @test StructMultiParam_ConvTest(1, 2.0, 3).z === 3.0
+    
+    # Struct with all parametric fields (should work as before)
+    struct StructAllParam_ConvTest{T,S}
+        x::T
+        y::S
+    end
+    @test StructAllParam_ConvTest(1, 2.0) isa StructAllParam_ConvTest{Int,Float64}
+    
+    # Struct with non-parametric field that doesn't allow simple conversion
+    struct StructString_ConvTest{T}
+        x::T
+        y::String
+    end
+    @test StructString_ConvTest(1, "hello") isa StructString_ConvTest{Int}
+    # Symbol should convert to String
+    @test StructString_ConvTest(1, :hello) isa StructString_ConvTest{Int}
+    @test StructString_ConvTest(1, :hello).y == "hello"
+end
