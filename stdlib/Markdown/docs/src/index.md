@@ -72,6 +72,8 @@ A paragraph containing some ``\LaTeX`` markup.
     @doc raw"``\LaTeX`` syntax in a docstring." functionname
     ```
 
+Latex equations are described in [Display equations](@ref).
+
 ### Links
 
 Links to either external or internal targets can be written using the following syntax, where
@@ -288,6 +290,7 @@ equations using a fenced code block with the "language" `math` as in the example
 f(a) = \frac{1}{2\pi}\int_{0}^{2\pi} (\alpha+R\cos(\theta))d\theta
 ```
 ````
+See the [Inline elements](@ref) section for inline ``\LaTeX``.
 
 ### Footnotes
 
